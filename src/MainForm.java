@@ -21,13 +21,24 @@ public class MainForm {
 
     ParsedDetailsDataSet parsedDetailsDataSet;
     public MainForm() {
-        btnStart.addActionListener(new ActionListener() {
+        Action action = new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 ParserWorker parserWorker = new ParserWorker();
                 parserWorker.execute();
+
             }
-        });
+        };
+
+        btnStart.addActionListener(action);
+        txtMainUrl.addActionListener(action);
+//        btnStart.addActionListener(new ActionListener() {
+//            @Override
+//            public void actionPerformed(ActionEvent e) {
+//                ParserWorker parserWorker = new ParserWorker();
+//                parserWorker.execute();
+//            }
+//        });
         btnClearLog.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -220,6 +231,7 @@ public class MainForm {
         ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
         tempListOfKeys.sort(new VideoSizeComparator());
 
+        // TODO: Attenzione se c'è stato un errore nel download (es. cloudflare) questa parte genera un'eccezione (IndexOutOfBoundsException)
         String tempKey = tempListOfKeys.get(0);
         String tempUrl = parsedDetailsDataSet.getUrlsGrabbed()
                 .getChunkListPrefixSrcString()+

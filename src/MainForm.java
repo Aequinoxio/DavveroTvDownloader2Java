@@ -6,6 +6,8 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,6 +20,7 @@ public class MainForm {
     private JCheckBox cbAutoCopy;
     private JCheckBox cbCopyTitle;
     private JButton copiaNuovamenteButton;
+    private JButton btnHelp;
 
     ParsedDetailsDataSet parsedDetailsDataSet;
     public MainForm() {
@@ -32,13 +35,7 @@ public class MainForm {
 
         btnStart.addActionListener(action);
         txtMainUrl.addActionListener(action);
-//        btnStart.addActionListener(new ActionListener() {
-//            @Override
-//            public void actionPerformed(ActionEvent e) {
-//                ParserWorker parserWorker = new ParserWorker();
-//                parserWorker.execute();
-//            }
-//        });
+
         btnClearLog.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -49,6 +46,28 @@ public class MainForm {
             @Override
             public void actionPerformed(ActionEvent e) {
                 copiaLowResUrlUI(parsedDetailsDataSet);
+            }
+        });
+        btnHelp.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                HelpDialog dialog = new HelpDialog();
+                dialog.pack();
+                dialog.setLocationRelativeTo(null);
+                dialog.setVisible(true);
+            }
+        });
+
+        // Seleziona tutto al focus della main url
+        txtMainUrl.addFocusListener(new FocusListener() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                txtMainUrl.selectAll();
+            }
+
+            @Override
+            public void focusLost(FocusEvent e) {
+
             }
         });
     }
@@ -143,19 +162,21 @@ public class MainForm {
         return sb.toString();
     }
 
-//    private void createUIComponents() {
-//        // TODO: place custom component creation code here
-//    }
 
 
     private class ParserWorker extends SwingWorker<ParsedDetailsDataSet,String>{
         LoaderParserDavveroTv loaderParserDavveroTv ;
         @Override
         protected ParsedDetailsDataSet doInBackground() {
-            loaderParserDavveroTv = new LoaderParserDavveroTv(messaggio -> publish(messaggio));
             String mainSrc = txtMainUrl.getText().trim();
-            loaderParserDavveroTv.caricaPaginaInizialeEGeneraVideoUrl(mainSrc);
+            loaderParserDavveroTv = new LoaderParserDavveroTv(messaggio -> publish(messaggio));
 
+            // Se la stringa non è vuota faccio tutto quello che devo fare
+            if ("".equals(mainSrc)){
+                return null;
+            }
+
+            loaderParserDavveroTv.caricaPaginaInizialeEGeneraVideoUrl(mainSrc);
             return loaderParserDavveroTv.getParsedDetailsDataSet();
         }
 

@@ -99,6 +99,27 @@ public class LoaderParserDavveroTv {
             conn.setRequestProperty("User-Agent",USER_AGENT);
             conn.connect();
 
+            /////////////// Recupera il charset ed imposta quello di default se non lo trova
+            // thanx to: https://stackoverflow.com/questions/3934251/urlconnection-does-not-get-the-charset
+            String contentType = conn.getContentType();
+            String[] values = contentType.split(";"); // values.length should be 2
+            String charSet="";
+
+            for (String value : values) {
+                value = value.trim();
+
+                if (value.toLowerCase().startsWith("charset=")) {
+                    charSet = value.substring("charset=".length());
+                    break; // esco al primo trovato
+                }
+            }
+
+            if ("".equals(charSet)) {
+                charSet = "UTF-8"; //Assumption
+            }
+
+            //////////////////// CHARSET BLOCK ////////////
+
             InputStream is ;
             boolean isCloudflared = conn.getResponseCode()==503;
             if (isCloudflared){
@@ -107,18 +128,24 @@ public class LoaderParserDavveroTv {
             } else {
                 is = conn.getInputStream();
             }
+
             BufferedReader br = new BufferedReader(new InputStreamReader(is));
             StringBuilder sb = new StringBuilder();
 
-            String str ;
-            while ((str = br.readLine())!=null){
-                sb.append(str);
-            }
+//            String str ;
+//            while ((str = br.readLine())!=null){
+//                sb.append(str);
+//            }
+
+            // Leggo la pagina
+            pageDocument = Jsoup.parse(is,charSet, url);
+
+            sb.append(pageDocument); // salvo il contenuto della pagina, TODO: forse può essere rimosso riorganizzando il codice a valle
+            //pageDocument = Jsoup.parse(sb.toString(),charSet);
+
             is.close();
             br.close();
             conn.disconnect();
-
-            pageDocument = Jsoup.parse(sb.toString());
 
             workerUpdateCallback.updateFromWorker( sb.toString() );
 

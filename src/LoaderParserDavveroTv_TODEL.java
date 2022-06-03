@@ -2,16 +2,12 @@
 
 //import org.jetbrains.annotations.NotNull;
 
-//import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -21,8 +17,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Versione pot 20 gennaio 2022 - rivisto il parser dell'url (bugfix sulla regexp)
- *
  * Classe di test per capire come scaricare i video da davvero.tv (agosto 2021 - dopo il cambio da Vimeo)
  * per ora recupera l'url corrispondente alla massima risoluzione
  * <p>
@@ -60,7 +54,7 @@ import java.util.regex.Pattern;
  * <p>
  * 9. scaricare l'url ottenuta.
  */
-public class LoaderParserDavveroTv implements LoaderParser {
+public class LoaderParserDavveroTv_TODEL {
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0";
     private static final String CHUNK_PLACEHOLDER = "***CHUNKLIST***";
 
@@ -68,11 +62,11 @@ public class LoaderParserDavveroTv implements LoaderParser {
 
     private final HashMap<String, String> mappaRisoluzioniChunklist = parsedDetailsDataSet.getMappaRisoluzioniChunklist();
     private final HashMap<String, ArrayList<String>> mappaRisoluzioniSegmentiChunklist = parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
-    private final ParsedDetailsDataSet.MainParametersUrlGrabbed mainParametersUrlGrabbed = parsedDetailsDataSet.getMainPatametersUrlGrabbed();
+    private final ParsedDetailsDataSet.MainParametersUrlGrabbed urlsGrabbed = parsedDetailsDataSet.getMainPatametersUrlGrabbed();
 
     private final WorkerUpdateCallback workerUpdateCallback;
 
-    public LoaderParserDavveroTv(WorkerUpdateCallback workerUpdateCallback) {
+    public LoaderParserDavveroTv_TODEL(WorkerUpdateCallback workerUpdateCallback) {
         this.workerUpdateCallback = workerUpdateCallback;
     }
 
@@ -83,9 +77,9 @@ public class LoaderParserDavveroTv implements LoaderParser {
      * @return
      * @throws IOException
      */
-    public void caricaPaginaInizialeEGeneraVideoUrl(String url, boolean mostraTutto) {
+    public void caricaPaginaInizialeEGeneraVideoUrl(String url) {
 
-        mainParametersUrlGrabbed.setMainSrcString(url);
+        urlsGrabbed.setMainSrcString(url);
 
         // STEP 1
         SystemConsoleLog(1);
@@ -102,33 +96,16 @@ public class LoaderParserDavveroTv implements LoaderParser {
 //            pageDocument = connection.get();
 
             ////////// CLOUDFLARE TEST
-
-            // Loggo tutto
-            if (mostraTutto) {
-                workerUpdateCallback.updateFromWorker( "Step 1 sull'url\n\t"+url);
-            }
-
             URL connURL = new URL(url);
-
             HttpURLConnection conn = (HttpURLConnection) connURL.openConnection();
             conn.setRequestProperty("User-Agent",USER_AGENT);
             conn.connect();
-
-            // loggo tutto
-            if (mostraTutto) {
-                workerUpdateCallback.updateFromWorker("Step 1 connection\n\t"+conn.getResponseMessage());
-            }
 
             /////////////// Recupera il charset ed imposta quello di default se non lo trova
             // thanx to: https://stackoverflow.com/questions/3934251/urlconnection-does-not-get-the-charset
             String contentType = conn.getContentType();
             String[] values = contentType.split(";"); // values.length should be 2
             String charSet="";
-
-            // loggo tutto
-            if (mostraTutto) {
-                workerUpdateCallback.updateFromWorker("Step 1 Content type:\n\t"+contentType);
-            }
 
             for (String value : values) {
                 value = value.trim();
@@ -172,10 +149,9 @@ public class LoaderParserDavveroTv implements LoaderParser {
             br.close();
             conn.disconnect();
 
-            // Log pagina caricata
-            if (mostraTutto) {
-                workerUpdateCallback.updateFromWorker("Step 1 pagina caricata\n"+sb.toString() );
-            }
+            // TODO: impostare un flag nella UI per mostrare la pagina, per ora non la mostro
+            //workerUpdateCallback.updateFromWorker( sb.toString() );
+
             if (isCloudflared){
                 workerUpdateCallback.updateFromWorker( "Cloudflare parsing treatment TODO");
             }
@@ -214,7 +190,7 @@ public class LoaderParserDavveroTv implements LoaderParser {
             String playlistSrcRealString = httpPlaylistUrlConnection.getHeaderField("Location");
             //System.out.println("Step4 new location finale: "+playlistSrcRealString);
 
-            mainParametersUrlGrabbed.setPlaylistSrcString(playlistSrcRealString);
+            urlsGrabbed.setPlaylistSrcString(playlistSrcRealString);
 
             // Carico la playlist e genero la lista dei file contenenti i chunk per ciascuna risoluzione
             URL playlistUrlReal = new URL(playlistSrcRealString);
@@ -235,10 +211,10 @@ public class LoaderParserDavveroTv implements LoaderParser {
             videoUrlConnection.disconnect();
             //System.out.println("Url da scaricare: "+videoSrcString + " lunghezza: "+videoUrlSize);
 
-            mainParametersUrlGrabbed.setPageTitle(titlePage);
-            mainParametersUrlGrabbed.setSizeMainMp4File(videoUrlSize);
-            mainParametersUrlGrabbed.setOriginalSrcString(videoSrcString);
-            mainParametersUrlGrabbed.setChunkListPrefixSrcString(playlistSrcRealString.replaceAll("playlist.m3u8.*$", ""));
+            urlsGrabbed.setPageTitle(titlePage);
+            urlsGrabbed.setSizeMainMp4File(videoUrlSize);
+            urlsGrabbed.setOriginalSrcString(videoSrcString);
+            urlsGrabbed.setChunkListPrefixSrcString(playlistSrcRealString.replaceAll("playlist.m3u8.*$", ""));
 
             // Estraggo tutti i segmenti da ciascuna chunklist
             String chunkSrcString = playlistSrcRealString.replaceAll("playlist.m3u8.*$", CHUNK_PLACEHOLDER);
@@ -250,19 +226,19 @@ public class LoaderParserDavveroTv implements LoaderParser {
 
                 for (String chiave : mappaRisoluzioniSegmentiChunklist.keySet()) {
                     URL chunkTempUrl = new URL(
-                            mainParametersUrlGrabbed.getChunkListPrefixSrcString() +
+                            urlsGrabbed.getChunkListPrefixSrcString() +
                                     mappaRisoluzioniSegmentiChunklist.get(chiave).get(0) // Check sul primo segmento
                     );
                     HttpURLConnection chunkSegmentConnection = (HttpURLConnection) chunkTempUrl.openConnection();
 
-                    mainParametersUrlGrabbed.getChunkEstimatedSizePerResolution().put(
+                    urlsGrabbed.getChunkEstimatedSizePerResolution().put(
                             chiave,
                             chunkSegmentConnection.getContentLengthLong()
                     );
                     chunkSegmentConnection.disconnect();
                 }
             }
-        }  catch (IOException e) {
+        } catch (Exception e) {
             workerUpdateCallback.updateFromWorker(e.toString());
         }
     }
@@ -334,11 +310,9 @@ public class LoaderParserDavveroTv implements LoaderParser {
 
     private @NotNull
     String generateCorrectUrl(String url) {
-        String urlReplaced = url.replace("webtools-", "")
+        return url.replace("webtools-", "")
                 .replace("embed", "vod")
-                .replaceFirst("\\?auto[pP]lay=(true|false|.*?)&", "/playlist.m3u8\\?");
-
-        return urlReplaced;
+                .replaceFirst("\\?auto[pP]lay=true&", "/playlist.m3u8\\?");
     }
 
 

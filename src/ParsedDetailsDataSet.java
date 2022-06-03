@@ -2,24 +2,48 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class ParsedDetailsDataSet {
+    /*
+        Mappa risoluzioni verticali, nome del file chunklist_XYX.m3u8 video corrispondente - Corrisponde all'ultima parte dell'url UrlsGrabbed.chunkListPrefixSrcString
+     */
     private final HashMap<String,String> mappaRisoluzioniChunklist = new HashMap<>();
 
+    /*
+        Mappa risoluzioni verticali, nomifile.ts - Sono i file che compongono il file mp4 completo
+     */
     private final HashMap<String, ArrayList<String>> mappaRisoluzioniSegmentiChunklist = new HashMap<>();
 
-    private final UrlsGrabbed urlsGrabbed = new UrlsGrabbed();
+    /*
+        Dati comuni corrispondenti all'url da scaricare
+     */
+    private final MainParametersUrlGrabbed mainParametersUrlGrabbed = new MainParametersUrlGrabbed();
 
+    /**
+     * Ritorna la mappa risoluzioni verticali->file chunklist-XYZ-m3u8
+     */
     public HashMap<String, String> getMappaRisoluzioniChunklist() {
         return mappaRisoluzioniChunklist;
     }
 
+    /**
+     * Ritorna la mappa risoluzioni verticali->file sei singoli segmenti componenti (file.ts) componenti il file mp4
+     * @return
+     */
     public HashMap<String, ArrayList<String>> getMappaRisoluzioniSegmentiChunklist() {
         return mappaRisoluzioniSegmentiChunklist;
     }
 
-    public UrlsGrabbed getUrlsGrabbed() {
-        return urlsGrabbed;
+    /**
+     * Ritorna i parametri associati all'url principale scaricata
+     * @return
+     */
+    public MainParametersUrlGrabbed getMainPatametersUrlGrabbed() {
+        return mainParametersUrlGrabbed;
     }
-    static class UrlsGrabbed{
+
+    /**
+     * Classe che rappresenta i parametri principali dell'url di cui fare il parsing e da scaricare
+     */
+    static class MainParametersUrlGrabbed {
 
         private String mainSrcString;       // Stringa contenente l'url principale da cui si parte per l'intero processo di parsing
         private String originalSrcString;   // Url del video original.mp4

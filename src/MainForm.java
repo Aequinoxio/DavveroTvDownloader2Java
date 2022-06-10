@@ -24,6 +24,7 @@ public class MainForm {
     private JCheckBox cbLogAll;
     private JRadioButton byoBluParserRadioButton;
     private JRadioButton davveroTVParserRadioButton;
+    private JProgressBar pbLoading;
 
     private enum ParserType {
         DavveroTV,
@@ -37,9 +38,8 @@ public class MainForm {
 
     public MainForm() {
 
-//        ButtonGroup bg = new ButtonGroup();
-//        bg.add(byoBluParserRadioButton);
-//        bg.add(davveroTVParserRadioButton);
+        pbLoading.setVisible(true);
+        pbLoading.setIndeterminate(false);
 
         Action action = new AbstractAction() {
             @Override
@@ -204,6 +204,9 @@ public class MainForm {
         @Override
         protected ParsedDetailsDataSet doInBackground() {
             String mainSrc = txtMainUrl.getText().trim();
+
+            pbLoading.setIndeterminate(true);
+
             // TODO: migliorare in caso si usassero più di due parser
             if (parserType==ParserType.ByoBlu) {
                 loaderParser = new LoaderParserByoBlu(messaggio -> publish(messaggio));
@@ -232,6 +235,8 @@ public class MainForm {
         @Override
         protected void done() {
             super.done();
+
+            pbLoading.setIndeterminate(false);
 
             txtLog.append(stringifyAllData(
                     loaderParser.getParsedDetailsDataSet()

@@ -1,3 +1,5 @@
+package org.davverotvdownloader2.app;
+
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;

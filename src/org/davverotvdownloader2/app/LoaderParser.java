@@ -1,17 +1,10 @@
-import org.jetbrains.annotations.NotNull;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
+package org.davverotvdownloader2.app;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,7 +44,7 @@ public interface LoaderParser {
                             chiave = matcher.group(1);
                         }
                     }
-                } else { // se la linea inizia per chunklisi allora la associo alla chiave già trovata, altrimenti proseguo
+                } else { // se la linea inizia per chunklist allora la associo alla chiave già trovata, altrimenti proseguo
                     if (linea.startsWith("chunklist")) {
                         mappaRisoluzioniChunklist.put(chiave, linea);
                     }

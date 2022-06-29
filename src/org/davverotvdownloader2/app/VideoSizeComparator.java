@@ -1,3 +1,5 @@
+package org.davverotvdownloader2.app;
+
 import java.util.Comparator;
 
 /**

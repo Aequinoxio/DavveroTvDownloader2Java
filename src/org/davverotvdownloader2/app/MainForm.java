@@ -1,13 +1,19 @@
+package org.davverotvdownloader2.app;
+
 import org.apache.commons.cli.*;
+import org.davverotvdownloader2.prefs.AppPrefs;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.Cursor;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
+import java.awt.event.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,6 +31,13 @@ public class MainForm {
     private JRadioButton byoBluParserRadioButton;
     private JRadioButton davveroTVParserRadioButton;
     private JProgressBar pbLoading;
+    private JCheckBox cbCreaClawljob;
+    private JTextField txtCrawljobSavePath;
+    private JButton btnSetCrawljobPath;
+
+//    private void createUIComponents() {
+//        // TODO: place custom component creation code here
+//    }
 
     private enum ParserType {
         DavveroTV,
@@ -32,26 +45,54 @@ public class MainForm {
     }
 
 
-    ParserType parserType = ParserType.ByoBlu;
+    protected ParserType parserType = ParserType.ByoBlu;
 
-    ParsedDetailsDataSet parsedDetailsDataSet;
+    protected ParsedDetailsDataSet parsedDetailsDataSet;
 
     public MainForm() {
 
         pbLoading.setVisible(true);
         pbLoading.setIndeterminate(false);
 
+        // Imposto correttamente la visibilità per questi campi
+        //txtCrawljobSavePath.setEnabled(cbCreaClawljob.isSelected());
+        btnSetCrawljobPath.setEnabled(cbCreaClawljob.isSelected());
+
+        //txtCrawljobSavePath.setText(System.getProperty("user.dir"));
+        txtCrawljobSavePath.setText(AppPrefs.SaveFolderLocation.get());
+
+        cbCreaClawljob.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                //txtCrawljobSavePath.setEnabled(e.getStateChange()==1);
+                btnSetCrawljobPath.setEnabled(cbCreaClawljob.isSelected());
+            }
+        });
+
         Action action = new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (byoBluParserRadioButton.isSelected()){
-                    parserType=ParserType.ByoBlu;
+                if (byoBluParserRadioButton.isSelected()) {
+                    parserType = ParserType.ByoBlu;
                 }
-                if (davveroTVParserRadioButton.isSelected()){
-                    parserType=ParserType.DavveroTV;
+                if (davveroTVParserRadioButton.isSelected()) {
+                    parserType = ParserType.DavveroTV;
                 }
 
                 ParserWorker parserWorker = new ParserWorker(parserType);
+
+                // TEST PER OTTIMIZZAZIONE AGGIORNAMENTO UI
+//                parserWorker.addPropertyChangeListener(new PropertyChangeListener() {
+//                    @Override
+//                    public void propertyChange(PropertyChangeEvent evt) {
+////                        if ("progress".equals(evt.getPropertyName())){
+//                            String progressOld =   evt.getOldValue().toString();
+//                            String progressNew =   evt.getNewValue().toString();
+//                            System.out.println("****** "+evt.getPropertyName()+ " -- "+ progressOld+" -- "+progressNew);
+////                        }
+//                    }
+//                });
+
                 parserWorker.execute();
             }
         };
@@ -91,6 +132,25 @@ public class MainForm {
             @Override
             public void focusLost(FocusEvent e) {
 
+            }
+        });
+        btnSetCrawljobPath.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser jFileChooser = new JFileChooser();
+                File startPath = new File(txtCrawljobSavePath.getText().trim());
+                if (!startPath.exists()){ // Prioritario ciò che p scritto nella textarea ma se il file non esiste lo prendo dalle prefs
+                    startPath=new File(AppPrefs.SaveFolderLocation.get());
+                }
+
+                jFileChooser.setCurrentDirectory(startPath);
+                jFileChooser.setDialogTitle("Directory di salvataggio del file");
+                jFileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                jFileChooser.setAcceptAllFileFilterUsed(false);
+                if (jFileChooser.showOpenDialog(MainPanel)==JFileChooser.APPROVE_OPTION){
+                    AppPrefs.SaveFolderLocation.put(jFileChooser.getSelectedFile().getAbsolutePath().trim());
+                    txtCrawljobSavePath.setText(jFileChooser.getSelectedFile().getAbsolutePath().trim());
+                }
             }
         });
     }
@@ -153,7 +213,7 @@ public class MainForm {
         }
     }
 
-    static String stringifyAllData(ParsedDetailsDataSet parsedDetailsDataSet) {
+    public static String stringifyAllData(ParsedDetailsDataSet parsedDetailsDataSet) {
         StringBuilder sb = new StringBuilder();
         // parsedDetailsDataSet=loaderParserDavveroTv.getParsedDetailsDataSet();
 
@@ -206,9 +266,11 @@ public class MainForm {
             String mainSrc = txtMainUrl.getText().trim();
 
             pbLoading.setIndeterminate(true);
+            MainPanel.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            btnStart.setEnabled(false);
 
             // TODO: migliorare in caso si usassero più di due parser
-            if (parserType==ParserType.ByoBlu) {
+            if (parserType == ParserType.ByoBlu) {
                 loaderParser = new LoaderParserByoBlu(messaggio -> publish(messaggio));
             } else {
                 loaderParser = new LoaderParserDavveroTv(messaggio -> publish(messaggio));
@@ -237,16 +299,19 @@ public class MainForm {
             super.done();
 
             pbLoading.setIndeterminate(false);
+            MainPanel.setCursor(null);
 
             txtLog.append(stringifyAllData(
                     loaderParser.getParsedDetailsDataSet()
             ));
 
+            btnStart.setEnabled(true);
+
             parsedDetailsDataSet = loaderParser.getParsedDetailsDataSet();
 
-//            ParsedDetailsDataSet parsedDetailsDataSet = loaderParserDavveroTv.getParsedDetailsDataSet();
+//            org.davverotvdownloader2.parsers.ParsedDetailsDataSet parsedDetailsDataSet = loaderParserDavveroTv.getParsedDetailsDataSet();
 //            ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
-//            tempListOfKeys.sort(new VideoSizeComparator());
+//            tempListOfKeys.sort(new org.davverotvdownloader2.parsers.VideoSizeComparator());
 //
 //            String tempKey = tempListOfKeys.get(0);
 //            String tempUrl = parsedDetailsDataSet.getUrlsGrabbed()
@@ -257,7 +322,18 @@ public class MainForm {
                 copiaLowResUrlUI(parsedDetailsDataSet);
             }
 
-//            ParsedDetailsDataSet parsedDetailsDataSet=loaderParserDavveroTv.getParsedDetailsDataSet();
+            if (cbCreaClawljob.isSelected()) {
+                String crawljobContent = generateLowResJDFW(parsedDetailsDataSet);
+                if (crawljobContent!=null) {
+                    String crawljobFilename = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle();
+                    if (crawljobFilename.trim().equalsIgnoreCase("")){
+                        crawljobFilename="crawljob"; // TODO: Fare meglio
+                    }
+                    saveLowResJDFW(crawljobFilename, crawljobContent);
+                }
+            }
+
+//            org.davverotvdownloader2.parsers.ParsedDetailsDataSet parsedDetailsDataSet=loaderParserDavveroTv.getParsedDetailsDataSet();
 //
 //            if (parsedDetailsDataSet.getMappaRisoluzioniChunklist().size()==0){
 //                txtLog.append("Qualcosa è andato storto");
@@ -271,7 +347,7 @@ public class MainForm {
 //
 //            txtLog.append("Stampo la mappa risoluzioni-chunklists");txtLog.append("\n");
 //            ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
-//            tempListOfKeys.sort(new VideoSizeComparator());
+//            tempListOfKeys.sort(new org.davverotvdownloader2.parsers.VideoSizeComparator());
 //            String tempUrl;
 //            for (String chiave : tempListOfKeys){
 //                tempUrl = parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(chiave);
@@ -287,14 +363,140 @@ public class MainForm {
         }
     }
 
+
+    /**
+     * Genera il contenuto del file crawljob
+     * @param parsedDetailsDataSet
+     * @return
+     */
+    private String generateLowResJDFW(ParsedDetailsDataSet parsedDetailsDataSet){
+        if (parsedDetailsDataSet == null || parsedDetailsDataSet.getMappaRisoluzioniChunklist().size() == 0) {
+            JOptionPane.showMessageDialog(MainPanel, "Nessun dato per generare il file per JDownloader", "Attenzione", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        String lineSep = System.lineSeparator();
+
+        sb.append("autoStart=TRUE").append(lineSep)
+                .append("enabled=TRUE").append(lineSep)
+                .append("autoStart=TRUE").append(lineSep)
+                .append("autoConfirm=TRUE").append(lineSep)
+                .append("overwritePackagizerEnabled=TRUE").append(lineSep)
+                .append("priority=DEFAULT").append(lineSep)
+                .append("forcedStart=UNSET").append(lineSep);
+
+        // Se arrivo qui allora la mappa delle risoluzioni ha almeno un elemento
+        ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
+        tempListOfKeys.sort(new VideoSizeComparator());
+
+        // Anche se c'è stato un errore nel download (es. cloudflare) questa parte non genera un'eccezione (IndexOutOfBoundsException)
+        String tempKey = tempListOfKeys.get(0);
+        String tempUrl = parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+                .getChunkListPrefixSrcString() +
+                parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(tempKey);
+
+        sb.append("text=").append(tempUrl).append(lineSep);
+
+        String stringToBeCopied = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle() + "\n";
+
+        sb.append("packageName=").append(stringToBeCopied).append(lineSep);
+
+        txtLog.append("---- newEntry.crawljob START ----");
+        txtLog.append(lineSep);
+        txtLog.append("Copia questo contenuto in un file .crawljob nella directory folderwatch di JD. Il download inizierà subito");
+        txtLog.append(sb.toString());
+        //txtLog.append(lineSep);
+        txtLog.append("---- newEntry.crawljob END ----");
+        txtLog.append(lineSep);
+        return sb.toString();
+    }
+
+
+    /**
+     * Salva il file per la cartella folderwatch di JDownloader
+     *
+     * @param filenameWithoutPathAndExtension
+     * @param crawlJobContent
+     */
+    private void saveLowResJDFW(String filenameWithoutPathAndExtension, String crawlJobContent) {
+        String lineSep = System.lineSeparator();
+
+        //String crawjjobContent = generateLowResJDFW(parsedDetailsDataSet);
+
+//        if (parsedDetailsDataSet == null || parsedDetailsDataSet.getMappaRisoluzioniChunklist().size() == 0) {
+//            JOptionPane.showMessageDialog(MainPanel, "Nessun dato per generare il file per JDownloader", "Attenzione", JOptionPane.WARNING_MESSAGE);
+//            return;
+//        }
+//
+//        StringBuilder sb = new StringBuilder();
+//
+//
+//        sb.append("autoStart=TRUE").append(lineSep)
+//                .append("enabled=TRUE").append(lineSep)
+//                .append("autoStart=TRUE").append(lineSep)
+//                .append("autoConfirm=TRUE").append(lineSep)
+//                .append("overwritePackagizerEnabled=TRUE").append(lineSep)
+//                .append("priority=DEFAULT").append(lineSep)
+//                .append("forcedStart=UNSET").append(lineSep);
+//
+//        // Se arrivo qui allora la mappa delle risoluzioni ha almeno un elemento
+//        ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
+//        tempListOfKeys.sort(new VideoSizeComparator());
+//
+//        // Anche se c'è stato un errore nel download (es. cloudflare) questa parte non genera un'eccezione (IndexOutOfBoundsException)
+//        String tempKey = tempListOfKeys.get(0);
+//        String tempUrl = parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+//                .getChunkListPrefixSrcString() +
+//                parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(tempKey);
+//
+//        sb.append("text=").append(tempUrl).append(lineSep);
+//
+//
+//        sb.append("packageName=").append(stringToBeCopied).append(lineSep);
+//
+//        txtLog.append("---- newEntry.crawljob START ----");
+//        txtLog.append(lineSep);
+//        txtLog.append("Copia questo contenuto in un file .crawljob nella directory folderwatch di JD. Il download inizierà subito");
+//        txtLog.append(sb.toString());
+//        //txtLog.append(lineSep);
+//        txtLog.append("---- newEntry.crawljob END ----");
+//        txtLog.append(lineSep);
+
+        //String stringToBeCopied = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle() + "\n";
+        try {
+            String filenameTemp = filenameWithoutPathAndExtension.replaceAll("[/\\\\:*?\"<>|]", "_").trim();
+            filenameTemp += ".crawljob";
+            // Prendo da AppPrefs per evitare che dopo la scelta della folder ci possa essere una sovrascrittura nel campo txtCrawljobSavePath
+            File file = new File(
+                    AppPrefs.SaveFolderLocation.get()+
+                    File.separator+
+                    filenameTemp
+            );
+
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(crawlJobContent.getBytes(StandardCharsets.UTF_8));
+            fos.close();
+
+            txtLog.append("Scritto il file crawljob: ");
+            txtLog.append(lineSep);
+            txtLog.append("  ");
+            txtLog.append(file.getAbsolutePath());
+            txtLog.append(lineSep);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void copiaLowResUrlUI(ParsedDetailsDataSet parsedDetailsDataSet) {
 
-        if (parsedDetailsDataSet == null || parsedDetailsDataSet.getMappaRisoluzioniChunklist().size()==0) {
+        if (parsedDetailsDataSet == null || parsedDetailsDataSet.getMappaRisoluzioniChunklist().size() == 0) {
             JOptionPane.showMessageDialog(MainPanel, "Nessun dato da copiare", "Attenzione", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Se arrivo qui allora la mappa delle risoluzioni ha aleno un elemento
+        // Se arrivo qui allora la mappa delle risoluzioni ha almeno un elemento
         ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
         tempListOfKeys.sort(new VideoSizeComparator());
 

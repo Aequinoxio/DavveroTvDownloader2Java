@@ -1,3 +1,5 @@
+package org.davverotvdownloader2.app;
+
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -169,8 +171,10 @@ public class LoaderParserByoBlu implements LoaderParser {
             throw new IOException("loadPlayList(String) - Risposta vuota dal server");
         }
 
-        InputStream targetStream = new ByteArrayInputStream(responseString.getBytes());
-        loadResolutionMapFromPlaylist(targetStream, mappaRisoluzioniChunklist);
+        try(InputStream targetStream = new ByteArrayInputStream(responseString.getBytes())) {
+            loadResolutionMapFromPlaylist(targetStream, mappaRisoluzioniChunklist);
+        }
+
     }
 
     /**
@@ -199,7 +203,7 @@ public class LoaderParserByoBlu implements LoaderParser {
 
             if (matcher.find()) {
                 result = matcher.group();
-                SystemConsoleLog(1, "Playlist: " + result, true); //Mpstro comunque tutto
+                SystemConsoleLog(1, "Playlist: " + result, true); //Mostro comunque tutto
             }
         }
         return result;

@@ -4,7 +4,10 @@ import java.util.prefs.Preferences;
 
 public enum AppPrefs {
     LoadFileLocation,
-    SaveFolderLocation;
+    SaveFolderLocation,
+    SaveLowResCrawljob,
+    AutoCopiaLowResUrlBoolean;
+
     private static final Preferences prefs = Preferences.userRoot().node(AppPrefs.class.getName());
     private static final String defaultDir = System.getProperty("user.home");
 

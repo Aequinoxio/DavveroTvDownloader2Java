@@ -19,14 +19,27 @@ import java.io.IOException;
 
 public class LoaderParserByoBlu implements LoaderParser {
 
-    //    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0";
+        private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0";
+        private static final String REFERRER = "https://www.byoblu.com/";
 //    private static final String CHUNK_PLACEHOLDER = "***CHUNKLIST***";
     String playlistRegexp = "https://.*?playlist.m3u8";
     private final ParsedDetailsDataSet parsedDetailsDataSet = new ParsedDetailsDataSet();
     private final HashMap<String, String> mappaRisoluzioniChunklist = parsedDetailsDataSet.getMappaRisoluzioniChunklist();
     private final HashMap<String, ArrayList<String>> mappaRisoluzioniSegmentiChunklist = parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
-    private final ParsedDetailsDataSet.MainParametersUrlGrabbed mainParametersUrlGrabbed = parsedDetailsDataSet.getMainPatametersUrlGrabbed();
+    private final ParsedDetailsDataSet.MainParametersUrlGrabbed mainParametersUrlGrabbed = parsedDetailsDataSet.getMainParametersUrlGrabbed();
     private final WorkerUpdateCallback workerUpdateCallback;
+
+    Interceptor addHeaders = chain -> {
+        Request original = chain.request();
+
+        Request request = original.newBuilder()
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", REFERRER)
+                .method(original.method(), original.body())
+                .build();
+
+        return chain.proceed(request);
+    };
 
     public LoaderParserByoBlu(WorkerUpdateCallback workerUpdateCallback) {
         this.workerUpdateCallback = workerUpdateCallback;
@@ -119,7 +132,9 @@ public class LoaderParserByoBlu implements LoaderParser {
         for (String chunkUrlKey : mappaRisoluzioniChunklist.keySet()) {
             tempSrc = chunkSrc + mappaRisoluzioniChunklist.get(chunkUrlKey); // Compongo l'url completa per il file chunklist corrispondente alla risoluzione (chiave)
 
-            OkHttpClient okHttpClient = new OkHttpClient.Builder().build();
+            OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                    .addInterceptor(addHeaders)
+                    .build();
             Request request = new Request.Builder().url(tempSrc).build();
             Response response = okHttpClient.newCall(request).execute();
 
@@ -151,13 +166,14 @@ public class LoaderParserByoBlu implements LoaderParser {
      * @throws IOException
      */
     private void loadPlaylist(String playlist) throws IOException {
-        String urlPrefix = playlist.replace("playlist.m3u8", "");
-        mainParametersUrlGrabbed.setChunkListPrefixSrcString(urlPrefix);
 
         // Carico la pagina contenente l'url della playlist
-        OkHttpClient okHttpClient = new OkHttpClient.Builder().build();
+        OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                .addInterceptor(addHeaders)
+                .build();
         Request request = new Request.Builder().url(playlist).build();
         Response response = okHttpClient.newCall(request).execute();
+
 
         // Se c'è stato un errore esco subito. TODO: Migliorare in base ai codici ritornati
         if(response.code()>=400){
@@ -170,6 +186,11 @@ public class LoaderParserByoBlu implements LoaderParser {
         if ("".equals(responseString)) {
             throw new IOException("loadPlayList(String) - Risposta vuota dal server");
         }
+
+        // Recuper l'url effettivamente richiesta (causa 302)
+        String urlPrefixTemp = response.request().url().toString();
+        String urlPrefix = urlPrefixTemp.replace("playlist.m3u8", "");
+        mainParametersUrlGrabbed.setChunkListPrefixSrcString(urlPrefix);
 
         try(InputStream targetStream = new ByteArrayInputStream(responseString.getBytes())) {
             loadResolutionMapFromPlaylist(targetStream, mappaRisoluzioniChunklist);
@@ -187,7 +208,11 @@ public class LoaderParserByoBlu implements LoaderParser {
     private String loadMainPage(String urlString) throws IOException {
         String result = null;
 
-        OkHttpClient okHttpClient = new OkHttpClient.Builder().build();
+        OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                .addInterceptor(addHeaders)
+                .followRedirects(true)
+                .build();
+
         Request request = new Request.Builder().url(urlString).build();
         Response response = okHttpClient.newCall(request).execute();
 

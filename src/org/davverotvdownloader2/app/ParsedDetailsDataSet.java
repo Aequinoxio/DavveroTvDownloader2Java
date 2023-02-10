@@ -38,7 +38,7 @@ public class ParsedDetailsDataSet {
      * Ritorna i parametri associati all'url principale scaricata
      * @return
      */
-    public MainParametersUrlGrabbed getMainPatametersUrlGrabbed() {
+    public MainParametersUrlGrabbed getMainParametersUrlGrabbed() {
         return mainParametersUrlGrabbed;
     }
 

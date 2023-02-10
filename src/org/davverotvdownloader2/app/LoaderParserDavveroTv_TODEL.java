@@ -62,7 +62,7 @@ public class LoaderParserDavveroTv_TODEL {
 
     private final HashMap<String, String> mappaRisoluzioniChunklist = parsedDetailsDataSet.getMappaRisoluzioniChunklist();
     private final HashMap<String, ArrayList<String>> mappaRisoluzioniSegmentiChunklist = parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
-    private final ParsedDetailsDataSet.MainParametersUrlGrabbed urlsGrabbed = parsedDetailsDataSet.getMainPatametersUrlGrabbed();
+    private final ParsedDetailsDataSet.MainParametersUrlGrabbed urlsGrabbed = parsedDetailsDataSet.getMainParametersUrlGrabbed();
 
     private final WorkerUpdateCallback workerUpdateCallback;
 

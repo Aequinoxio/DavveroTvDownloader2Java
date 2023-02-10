@@ -10,11 +10,11 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class MainForm {
@@ -60,12 +60,36 @@ public class MainForm {
 
         //txtCrawljobSavePath.setText(System.getProperty("user.dir"));
         txtCrawljobSavePath.setText(AppPrefs.SaveFolderLocation.get());
+        txtCrawljobSavePath.setDisabledTextColor(Color.BLACK);
 
+        // Check di raggiungibilità del path
+        File tempFile = new File(AppPrefs.SaveFolderLocation.get());
+        if (tempFile.isDirectory()){
+            txtCrawljobSavePath.setBackground(Color.GREEN);
+        } else {
+            txtCrawljobSavePath.setBackground(Color.RED);
+        }
+        ////
+
+        cbAutoCopy.setSelected(AppPrefs.AutoCopiaLowResUrlBoolean.get("true").equals("true"));
+
+        cbCreaClawljob.setSelected(AppPrefs.AutoCopiaLowResUrlBoolean.get("true").equals("true"));
+        btnSetCrawljobPath.setEnabled(cbCreaClawljob.isSelected());
+
+        /////////////// LISTENERS ///////////////
         cbCreaClawljob.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
                 //txtCrawljobSavePath.setEnabled(e.getStateChange()==1);
+                AppPrefs.SaveLowResCrawljob.put(cbAutoCopy.isSelected()?"true":"false");
                 btnSetCrawljobPath.setEnabled(cbCreaClawljob.isSelected());
+            }
+        });
+
+        cbAutoCopy.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                AppPrefs.AutoCopiaLowResUrlBoolean.put(cbAutoCopy.isSelected()?"true":"false");
             }
         });
 
@@ -139,7 +163,7 @@ public class MainForm {
             public void actionPerformed(ActionEvent e) {
                 JFileChooser jFileChooser = new JFileChooser();
                 File startPath = new File(txtCrawljobSavePath.getText().trim());
-                if (!startPath.exists()){ // Prioritario ciò che p scritto nella textarea ma se il file non esiste lo prendo dalle prefs
+                if (!startPath.exists()){ // Prioritario ciò che è scritto nella textarea ma se il file non esiste lo prendo dalle prefs
                     startPath=new File(AppPrefs.SaveFolderLocation.get());
                 }
 
@@ -150,6 +174,7 @@ public class MainForm {
                 if (jFileChooser.showOpenDialog(MainPanel)==JFileChooser.APPROVE_OPTION){
                     AppPrefs.SaveFolderLocation.put(jFileChooser.getSelectedFile().getAbsolutePath().trim());
                     txtCrawljobSavePath.setText(jFileChooser.getSelectedFile().getAbsolutePath().trim());
+                    txtCrawljobSavePath.setBackground(Color.GREEN);
                 }
             }
         });
@@ -222,12 +247,12 @@ public class MainForm {
             return sb.toString();
         }
         // Loggo quanto ho trovato nella textarea dedicata
-        sb.append("Titolo della pagina: ").append(parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle());
+        sb.append("Titolo della pagina: ").append(parsedDetailsDataSet.getMainParametersUrlGrabbed().getPageTitle());
         sb.append("\n");
-        sb.append("Url per la playlist risoluzioni-chunklist");
+        sb.append("\tUrl per la playlist risoluzioni-chunklist");
         sb.append("\n");
         sb.append(parsedDetailsDataSet
-                .getMainPatametersUrlGrabbed().getChunkListPrefixSrcString());
+                .getMainParametersUrlGrabbed().getChunkListPrefixSrcString());
         sb.append("\n");
 
         sb.append("Stampo la mappa risoluzioni-chunklists");
@@ -240,10 +265,10 @@ public class MainForm {
 
             sb.append("\t" + chiave + " - " + tempUrl + " dim stimate: " +
                     parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist().get(chiave).size() *
-                            parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+                            parsedDetailsDataSet.getMainParametersUrlGrabbed()
                                     .getChunkEstimatedSizePerResolution().get(chiave));
             sb.append("\n");
-            sb.append("\t\turl completa: " + parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+            sb.append("\t\turl completa: " + parsedDetailsDataSet.getMainParametersUrlGrabbed()
                     .getChunkListPrefixSrcString() + tempUrl
             );
             sb.append("\n");
@@ -325,13 +350,15 @@ public class MainForm {
             if (cbCreaClawljob.isSelected()) {
                 String crawljobContent = generateLowResJDFW(parsedDetailsDataSet);
                 if (crawljobContent!=null) {
-                    String crawljobFilename = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle();
+                    String crawljobFilename = parsedDetailsDataSet.getMainParametersUrlGrabbed().getPageTitle();
                     if (crawljobFilename.trim().equalsIgnoreCase("")){
                         crawljobFilename="crawljob"; // TODO: Fare meglio
                     }
                     saveLowResJDFW(crawljobFilename, crawljobContent);
                 }
             }
+
+            generateAndLogLowResDownThemAllPattern(parsedDetailsDataSet);
 
 //            org.davverotvdownloader2.parsers.ParsedDetailsDataSet parsedDetailsDataSet=loaderParserDavveroTv.getParsedDetailsDataSet();
 //
@@ -359,6 +386,41 @@ public class MainForm {
 //                txtLog.append("\t\turl completa: "+ loaderParserDavveroTv.getParsedDetailsDataSet().getUrlsGrabbed()
 //                        .getChunkListPrefixSrcString()+tempUrl
 //                );txtLog.append("\n");
+//            }
+        }
+    }
+
+    private void generateAndLogLowResDownThemAllPattern(ParsedDetailsDataSet parsedDetailsDataSet) {
+        HashMap<String, ArrayList<String>> tempMapResChunks= parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
+
+        txtLog.append("Genero le url per DownThemAll");txtLog.append("\n");
+
+        for (String keyResolutionSize:tempMapResChunks.keySet()){
+            txtLog.append(keyResolutionSize);txtLog.append("\n");
+
+            ArrayList<String> chunks = tempMapResChunks.get(keyResolutionSize);
+            // Presuppongo che i chunks siano consecutivi per cui ottimizzo e considero solo il loro numero complessivo
+            int latestChunk= chunks.size();
+            String template= chunks.get(0);
+            String[] splitted = template.split("-");
+            splitted[1]="[1:"+latestChunk+"]";
+            String joined;
+            StringBuilder sb = new StringBuilder();
+
+            // Ricostruisco la stringa
+            for (int i = 0; i < splitted.length-1; i++) {
+                String s = splitted[i];
+                sb.append(s);
+                sb.append("-");
+            }
+            sb.append(splitted[splitted.length-1]); // parte finale
+
+            // Stampo l'url completa per DownThemAll
+            txtLog.append("\t");
+            txtLog.append(parsedDetailsDataSet.getMainParametersUrlGrabbed().getChunkListPrefixSrcString());
+            txtLog.append(sb.toString()); txtLog.append("\n");
+//            for (String chunk: chunks) {
+//                txtLog.append(chunk);txtLog.append("\n");
 //            }
         }
     }
@@ -393,13 +455,13 @@ public class MainForm {
 
         // Anche se c'è stato un errore nel download (es. cloudflare) questa parte non genera un'eccezione (IndexOutOfBoundsException)
         String tempKey = tempListOfKeys.get(0);
-        String tempUrl = parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+        String tempUrl = parsedDetailsDataSet.getMainParametersUrlGrabbed()
                 .getChunkListPrefixSrcString() +
                 parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(tempKey);
 
         sb.append("text=").append(tempUrl).append(lineSep);
 
-        String stringToBeCopied = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle() + "\n";
+        String stringToBeCopied = parsedDetailsDataSet.getMainParametersUrlGrabbed().getPageTitle() + "\n";
 
         sb.append("packageName=").append(stringToBeCopied).append(lineSep);
 
@@ -502,13 +564,13 @@ public class MainForm {
 
         // Anche se c'è stato un errore nel download (es. cloudflare) questa parte non genera un'eccezione (IndexOutOfBoundsException)
         String tempKey = tempListOfKeys.get(0);
-        String tempUrl = parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+        String tempUrl = parsedDetailsDataSet.getMainParametersUrlGrabbed()
                 .getChunkListPrefixSrcString() +
                 parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(tempKey);
 
         String stringToBeCopied = "";
         if (cbCopyTitle.isSelected()) {
-            stringToBeCopied = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle() + "\n";
+            stringToBeCopied = parsedDetailsDataSet.getMainParametersUrlGrabbed().getPageTitle() + "\n";
         }
         stringToBeCopied += tempUrl;
         Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
@@ -531,13 +593,13 @@ public class MainForm {
         tempListOfKeys.sort(new VideoSizeComparator());
 
         String tempKey = tempListOfKeys.get(0);
-        String tempUrl = parsedDetailsDataSet.getMainPatametersUrlGrabbed()
+        String tempUrl = parsedDetailsDataSet.getMainParametersUrlGrabbed()
                 .getChunkListPrefixSrcString() +
                 parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(tempKey);
 
         String stringToBeCopied = "";
         if (copytitle) {
-            stringToBeCopied = parsedDetailsDataSet.getMainPatametersUrlGrabbed().getPageTitle() + "\n";
+            stringToBeCopied = parsedDetailsDataSet.getMainParametersUrlGrabbed().getPageTitle() + "\n";
         }
         stringToBeCopied += tempUrl;
         Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();

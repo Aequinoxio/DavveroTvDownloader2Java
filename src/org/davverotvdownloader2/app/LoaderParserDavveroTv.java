@@ -68,7 +68,7 @@ public class LoaderParserDavveroTv implements LoaderParser {
 
     private final HashMap<String, String> mappaRisoluzioniChunklist = parsedDetailsDataSet.getMappaRisoluzioniChunklist();
     private final HashMap<String, ArrayList<String>> mappaRisoluzioniSegmentiChunklist = parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
-    private final ParsedDetailsDataSet.MainParametersUrlGrabbed mainParametersUrlGrabbed = parsedDetailsDataSet.getMainPatametersUrlGrabbed();
+    private final ParsedDetailsDataSet.MainParametersUrlGrabbed mainParametersUrlGrabbed = parsedDetailsDataSet.getMainParametersUrlGrabbed();
 
     private final WorkerUpdateCallback workerUpdateCallback;
 

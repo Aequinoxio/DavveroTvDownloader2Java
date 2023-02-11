@@ -5,7 +5,8 @@ import java.util.prefs.Preferences;
 public enum AppPrefs {
     LoadFileLocation,
     SaveFolderLocation,
-    SaveLowResCrawljob,
+    SaveLowResCrawljobFlag,
+    SaveDownThemAllParamsFile,
     AutoCopiaLowResUrlBoolean;
 
     private static final Preferences prefs = Preferences.userRoot().node(AppPrefs.class.getName());

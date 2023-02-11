@@ -5,7 +5,6 @@ import org.davverotvdownloader2.prefs.AppPrefs;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.Cursor;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
@@ -13,6 +12,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ public class MainForm {
     private JCheckBox cbCreaClawljob;
     private JTextField txtCrawljobSavePath;
     private JButton btnSetCrawljobPath;
+    private JButton salvaPerDownThemAllButton;
 
 //    private void createUIComponents() {
 //        // TODO: place custom component creation code here
@@ -64,7 +66,7 @@ public class MainForm {
 
         // Check di raggiungibilità del path
         File tempFile = new File(AppPrefs.SaveFolderLocation.get());
-        if (tempFile.isDirectory()){
+        if (tempFile.isDirectory()) {
             txtCrawljobSavePath.setBackground(Color.GREEN);
         } else {
             txtCrawljobSavePath.setBackground(Color.RED);
@@ -81,7 +83,7 @@ public class MainForm {
             @Override
             public void itemStateChanged(ItemEvent e) {
                 //txtCrawljobSavePath.setEnabled(e.getStateChange()==1);
-                AppPrefs.SaveLowResCrawljob.put(cbAutoCopy.isSelected()?"true":"false");
+                AppPrefs.SaveLowResCrawljobFlag.put(cbAutoCopy.isSelected() ? "true" : "false");
                 btnSetCrawljobPath.setEnabled(cbCreaClawljob.isSelected());
             }
         });
@@ -89,7 +91,7 @@ public class MainForm {
         cbAutoCopy.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
-                AppPrefs.AutoCopiaLowResUrlBoolean.put(cbAutoCopy.isSelected()?"true":"false");
+                AppPrefs.AutoCopiaLowResUrlBoolean.put(cbAutoCopy.isSelected() ? "true" : "false");
             }
         });
 
@@ -163,18 +165,81 @@ public class MainForm {
             public void actionPerformed(ActionEvent e) {
                 JFileChooser jFileChooser = new JFileChooser();
                 File startPath = new File(txtCrawljobSavePath.getText().trim());
-                if (!startPath.exists()){ // Prioritario ciò che è scritto nella textarea ma se il file non esiste lo prendo dalle prefs
-                    startPath=new File(AppPrefs.SaveFolderLocation.get());
+                if (!startPath.exists()) { // Prioritario ciò che è scritto nella textarea ma se il file non esiste lo prendo dalle prefs
+                    startPath = new File(AppPrefs.SaveFolderLocation.get());
                 }
 
                 jFileChooser.setCurrentDirectory(startPath);
                 jFileChooser.setDialogTitle("Directory di salvataggio del file");
                 jFileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                 jFileChooser.setAcceptAllFileFilterUsed(false);
-                if (jFileChooser.showOpenDialog(MainPanel)==JFileChooser.APPROVE_OPTION){
+                if (jFileChooser.showOpenDialog(MainPanel) == JFileChooser.APPROVE_OPTION) {
                     AppPrefs.SaveFolderLocation.put(jFileChooser.getSelectedFile().getAbsolutePath().trim());
                     txtCrawljobSavePath.setText(jFileChooser.getSelectedFile().getAbsolutePath().trim());
                     txtCrawljobSavePath.setBackground(Color.GREEN);
+                }
+            }
+        });
+        salvaPerDownThemAllButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                if (parsedDetailsDataSet == null) {
+                    JOptionPane.showMessageDialog(MainPanel, "Dati non presenti");
+                    return;
+                }
+
+                String fileContent = generateAndLogDownThemAllPattern(parsedDetailsDataSet, false);
+                // TODO: CHECK esistenza dati
+
+                File prefsFile = new File(AppPrefs.SaveDownThemAllParamsFile.get());
+
+
+                JFileChooser jFileChooser = new JFileChooser();
+                jFileChooser.setCurrentDirectory(prefsFile);
+                jFileChooser.setSelectedFile(prefsFile);
+                jFileChooser.setDialogTitle("Salva i dati per DownThemAll");
+
+                Path filePath=null; // Path del file da salvare
+                boolean writeFile = false;
+                boolean continueTrying = true;
+
+                while(continueTrying) {
+                    int optionChoosed = jFileChooser.showSaveDialog(MainPanel);
+                    if (optionChoosed == JFileChooser.APPROVE_OPTION) {
+                        filePath = jFileChooser.getSelectedFile().toPath();
+
+                        if (Files.exists(jFileChooser.getSelectedFile().toPath())) {
+                            int warningChoosedValue = JOptionPane.showConfirmDialog(MainPanel, "Sovrascrivo il file", "Attenzione", JOptionPane.YES_NO_CANCEL_OPTION);
+                            switch (warningChoosedValue){
+                                case JOptionPane.OK_OPTION :
+                                    writeFile=true;
+                                    continueTrying=false;
+                                    break;
+                                case JOptionPane.CANCEL_OPTION:
+                                    writeFile=false;
+                                    continueTrying=false;
+                                    break;
+                                default:
+                                    continueTrying=true;
+                            }
+                        } else {
+                            writeFile=true;
+                            continueTrying=false;
+                        }
+                    } else {
+                        writeFile=false;
+                        continueTrying=false;
+                    }
+                }
+
+                if (writeFile){
+                    try {
+                        Files.write(filePath, fileContent.getBytes());
+                        AppPrefs.SaveDownThemAllParamsFile.put(filePath.toString());
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
             }
         });
@@ -349,89 +414,88 @@ public class MainForm {
 
             if (cbCreaClawljob.isSelected()) {
                 String crawljobContent = generateLowResJDFW(parsedDetailsDataSet);
-                if (crawljobContent!=null) {
+                if (crawljobContent != null) {
                     String crawljobFilename = parsedDetailsDataSet.getMainParametersUrlGrabbed().getPageTitle();
-                    if (crawljobFilename.trim().equalsIgnoreCase("")){
-                        crawljobFilename="crawljob"; // TODO: Fare meglio
+                    if (crawljobFilename.trim().equalsIgnoreCase("")) {
+                        crawljobFilename = "crawljob"; // TODO: Fare meglio
                     }
                     saveLowResJDFW(crawljobFilename, crawljobContent);
                 }
             }
 
-            generateAndLogLowResDownThemAllPattern(parsedDetailsDataSet);
+            generateAndLogDownThemAllPattern(parsedDetailsDataSet, true);
 
-//            org.davverotvdownloader2.parsers.ParsedDetailsDataSet parsedDetailsDataSet=loaderParserDavveroTv.getParsedDetailsDataSet();
-//
-//            if (parsedDetailsDataSet.getMappaRisoluzioniChunklist().size()==0){
-//                txtLog.append("Qualcosa è andato storto");
-//                return;
-//            }
-//            // Loggo quanto ho trovato nella textarea dedicata
-//            txtLog.append("Url per la playlist risoluzioni-chunklist");txtLog.append("\n");
-//            txtLog.append(loaderParserDavveroTv.getParsedDetailsDataSet()
-//                    .getUrlsGrabbed().getChunkListPrefixSrcString());txtLog.append("\n");
-//
-//
-//            txtLog.append("Stampo la mappa risoluzioni-chunklists");txtLog.append("\n");
-//            ArrayList<String> tempListOfKeys = new ArrayList<>(parsedDetailsDataSet.getMappaRisoluzioniChunklist().keySet());
-//            tempListOfKeys.sort(new org.davverotvdownloader2.parsers.VideoSizeComparator());
-//            String tempUrl;
-//            for (String chiave : tempListOfKeys){
-//                tempUrl = parsedDetailsDataSet.getMappaRisoluzioniChunklist().get(chiave);
-//
-//                txtLog.append("\t"+chiave + " - " + tempUrl+ " dim stimate: "+
-//                        parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist().get(chiave).size()*
-//                                loaderParserDavveroTv.getParsedDetailsDataSet().getUrlsGrabbed()
-//                                        .getChunkEstimatedSizePerResolution().get(chiave));txtLog.append("\n");
-//                txtLog.append("\t\turl completa: "+ loaderParserDavveroTv.getParsedDetailsDataSet().getUrlsGrabbed()
-//                        .getChunkListPrefixSrcString()+tempUrl
-//                );txtLog.append("\n");
-//            }
         }
     }
 
-    private void generateAndLogLowResDownThemAllPattern(ParsedDetailsDataSet parsedDetailsDataSet) {
-        HashMap<String, ArrayList<String>> tempMapResChunks= parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
+    private String generateAndLogDownThemAllPattern(ParsedDetailsDataSet parsedDetailsDataSet, boolean logToTextArea) {
+        HashMap<String, ArrayList<String>> tempMapResChunks = parsedDetailsDataSet.getMappaRisoluzioniSegmentiChunklist();
 
-        txtLog.append("Genero le url per DownThemAll");txtLog.append("\n");
+        StringBuilder sbRetval = new StringBuilder();
 
-        for (String keyResolutionSize:tempMapResChunks.keySet()){
-            txtLog.append(keyResolutionSize);txtLog.append("\n");
+        if (logToTextArea) {
+            txtLog.append("Genero le url per DownThemAll");
+            txtLog.append("\n");
+        }
+
+        sbRetval.append("Comando ffmpeg per riassemblare i file in un unico video:");
+        sbRetval.append("\n");
+        sbRetval.append("ffmpeg -f concat -i LISTA_CHUNKS.txt -c copy OUTFILE.mp4");
+        sbRetval.append("\n");
+
+        for (String keyResolutionSize : tempMapResChunks.keySet()) {
+            sbRetval.append("\n");
+            sbRetval.append(keyResolutionSize);
+            sbRetval.append("\n");
 
             ArrayList<String> chunks = tempMapResChunks.get(keyResolutionSize);
             // Presuppongo che i chunks siano consecutivi per cui ottimizzo e considero solo il loro numero complessivo
-            int latestChunk= chunks.size();
-            String template= chunks.get(0);
+            int latestChunk = chunks.size();
+            String template = chunks.get(0);
             String[] splitted = template.split("-");
-            splitted[1]="[1:"+latestChunk+"]";
+            splitted[1] = "[1:" + latestChunk + "]";
             String joined;
             StringBuilder sb = new StringBuilder();
 
             // Ricostruisco la stringa
-            for (int i = 0; i < splitted.length-1; i++) {
+            for (int i = 0; i < splitted.length - 1; i++) {
                 String s = splitted[i];
                 sb.append(s);
                 sb.append("-");
             }
-            sb.append(splitted[splitted.length-1]); // parte finale
+            sb.append(splitted[splitted.length - 1]); // parte finale
 
-            // Stampo l'url completa per DownThemAll
-            txtLog.append("\t");
-            txtLog.append(parsedDetailsDataSet.getMainParametersUrlGrabbed().getChunkListPrefixSrcString());
-            txtLog.append(sb.toString()); txtLog.append("\n");
-//            for (String chunk: chunks) {
-//                txtLog.append(chunk);txtLog.append("\n");
-//            }
+            // Stampo l'url comlleta del il file chunklist
+            sbRetval.append(parsedDetailsDataSet.getMainParametersUrlGrabbed().getChunkListPrefixSrcString());
+            sbRetval.append(sb);
+            sbRetval.append("\n");
+
+            // Aggiungo i chunklist solo per il file finale
+            sbRetval.append("Lista CHUNKS per ffmpeg (da copiare in un file LISTA_CHUNKS.txt):");
+            sbRetval.append("\n");
+            for (String chunk : chunks) {
+                sbRetval.append("file '");
+                sbRetval.append(chunk);
+                sbRetval.append("'");
+                sbRetval.append("\n");
+            }
         }
+
+        if (logToTextArea) {
+            txtLog.append(sbRetval.toString());
+        }
+
+        return sbRetval.toString();
     }
 
 
     /**
      * Genera il contenuto del file crawljob
+     *
      * @param parsedDetailsDataSet
      * @return
      */
-    private String generateLowResJDFW(ParsedDetailsDataSet parsedDetailsDataSet){
+    private String generateLowResJDFW(ParsedDetailsDataSet parsedDetailsDataSet) {
         if (parsedDetailsDataSet == null || parsedDetailsDataSet.getMappaRisoluzioniChunklist().size() == 0) {
             JOptionPane.showMessageDialog(MainPanel, "Nessun dato per generare il file per JDownloader", "Attenzione", JOptionPane.WARNING_MESSAGE);
             return null;
@@ -532,9 +596,9 @@ public class MainForm {
             filenameTemp += ".crawljob";
             // Prendo da AppPrefs per evitare che dopo la scelta della folder ci possa essere una sovrascrittura nel campo txtCrawljobSavePath
             File file = new File(
-                    AppPrefs.SaveFolderLocation.get()+
-                    File.separator+
-                    filenameTemp
+                    AppPrefs.SaveFolderLocation.get() +
+                            File.separator +
+                            filenameTemp
             );
 
             FileOutputStream fos = new FileOutputStream(file);
